@@ -14,38 +14,81 @@ def load_data():
     return pd.read_csv(output)
 
 df = load_data()
-
+df = df[df["pandstatus"] == "Pand in gebruik"]
 # Manual Dutch number formatter
-def format_dutch_number(num, decimals=2):
-    if isinstance(num, int):
-        return f"{num:,}".replace(",", ".")
-    return f"{num:,.{decimals}f}".replace(",", "X").replace(".", ",").replace("X", "")
+
+def format_dutch_number(number, decimal_places=0):
+    """Format number with thousands separated by '.' and decimals (if any) separated by ','"""
+    if isinstance(number, str):
+        return number
+    try:
+        if decimal_places > 0:
+            number = float(round(float(number), decimal_places))
+            integer_part, decimal_part = str(number).replace(',', '.').split('.')
+            integer_part = f"{int(integer_part):,}".replace(",", ".")
+            return f"{integer_part},{decimal_part.ljust(decimal_places, '0')}"
+        else:
+            integer_part = int(round(float(number), 0))
+            return f"{integer_part:,}".replace(",", ".")
+    except:
+        return str(number)
 
 # Filter and prepare data
 df = df[["latitude", "longitude", "kWh_per_m2", "gemiddeld_jaarverbruik_mWh",
          "mWh_tot_scenario_1", "mWh_tot_scenario_2", "mWh_tot_scenario_3", "mWh_tot_scenario_4"]]
 
-# *** Color Configuration ***
+
+# # *** Color Configuration ***
+# colorbrewer_colors = [
+#     [247, 251, 255, 255],  # <25
+#     [200, 220, 240, 255],  # 25–100
+#     [150, 190, 230, 255],  # 100–500
+#     [100, 160, 200, 255],  # 500–1000
+#     [80, 120, 180, 255],   # 1000–2000
+#     [60, 80, 160, 255],    # 2000–5000
+#     [40, 40, 140, 255]     # >5000
+# ]
+
+# colorbrewer_colors = [
+#     [254, 224, 139, 255],  # Yellow-Orange
+#     [255, 255, 191, 255],  # Light Yellow
+#     [230, 245, 152, 255],  # Light Lime
+#     [171, 221, 164, 255],  # Light Green
+#     [102, 194, 165, 255],  # Green
+#     [50, 136, 189, 255],   # Blue-Green
+#     [94, 79, 162, 255]     # Purple
+# ]
+
 colorbrewer_colors = [
-    [69, 117, 180, 255],   # Dark blue (Lowest usage)
-    [254, 224, 144, 255],  # Light orange (Medium usage)
-    [215, 48, 39, 255],    # Red (Highest usage)
-    [26, 152, 80, 255]     # Green (Threshold exceedance)
+    [255, 255, 255, 255],  # Light Lime
+    [255, 255, 191, 255],  # Light Yellow
+    [254, 224, 139, 255],  # Yellow-Orange
+    [253, 174, 97, 255],   # Light Orange
+    [244, 109, 67, 255],   # Orange-Red
+    [213, 62, 79, 255],    # Red
+    [158, 1, 66, 255],     # Dark Red-Purple
+
 ]
 
-def get_color(value, percentiles, threshold):
-    if value > threshold:
-        return colorbrewer_colors[3]  # Green for threshold exceedance
-    elif value < percentiles[25]:
-        return colorbrewer_colors[2]  # Red
-    elif percentiles[25] <= value <= percentiles[75]:
-        return colorbrewer_colors[1]  # Orange
+def get_color(value):
+    if value < 25:
+        return colorbrewer_colors[0]
+    elif 25 <= value < 100:
+        return colorbrewer_colors[1]
+    elif 100 <= value < 500:
+        return colorbrewer_colors[2]
+    elif 500 <= value < 1000:
+        return colorbrewer_colors[3]
+    elif 1000 <= value < 2000:
+        return colorbrewer_colors[4]
+    elif 2000 <= value < 5000:
+        return colorbrewer_colors[5]
     else:
-        return colorbrewer_colors[0]  # Blue
+        return colorbrewer_colors[6]
 
 # *** Streamlit UI ***
-st.markdown("<h1 style='font-size: 35px;'>Scenario's Heatdemand Friesland</h1>" \
-            "<h2 style='font-size: 18px;color: #555'>Missende energieklassen zijn geschat en scenarios zijn gebasserd op energieklasse</h2>"
+st.markdown("<h1 style='font-size: 35px;'>Scenario's Heat Demand Fryslân</h1>" \
+            "<h2 style='font-size: 18px;color: #555'>Missende energieklassen zijn geschat en scenarios zijn gebaseerd op beschikbare en geschatte energieklassen</h2>"
             , unsafe_allow_html=True)
 
 
@@ -53,6 +96,15 @@ st.markdown("<h1 style='font-size: 35px;'>Scenario's Heatdemand Friesland</h1>" 
 # *** Sidebar Configuration ***
 with st.sidebar:
     st.header("Configuratie")
+    
+    # *** Kies een kaartstijl ***
+    map_style = st.sidebar.selectbox(
+        "Kies een kaartstijl:",
+        options=["dark", "light", "streets", "outdoors", "satellite", "satellite-streets"],
+        format_func=lambda x: x.capitalize()
+    )
+
+    map_style_url = f"mapbox://styles/mapbox/{map_style}-v9"
     
     with st.sidebar.expander("ℹ️ Scenario's"):
         st.markdown("""
@@ -104,16 +156,57 @@ with st.sidebar:
     selected_scenario = st.selectbox("Kies Energie Scenario", options=list(scenario_options.keys()))
     scenario_column = scenario_options[selected_scenario]
     
-    # Threshold configuration
-    grenswaarde = st.number_input(
-        "Stel minimale grenswaarde in (mWh):",
-        min_value=0,
-        value=2000,  # Default threshold
-        step=100
-    )
-    
+        # Info about hexagon size
+    st.markdown("""
+        <style>
+            .info-icon {
+                display: inline-block;
+                width: 20px;
+                height: 20px;
+                background-color: #0078D7;
+                color: white;
+                text-align: center;
+                border-radius: 50%;
+                font-size: 14px;
+                font-weight: bold;
+                cursor: pointer;
+                margin-left: 10px;
+                margin-bottom: 40px;
+            }
+            .tooltip-text {
+                visibility: hidden;
+                width: 250px;
+                background: #333;
+                color: #fff;
+                text-align: left;
+                border-radius: 4px;
+                padding: 8px;
+                position: absolute;
+                z-index: 1000;
+                top: 0; 
+                left: 110%;
+                margin-left: -10px;
+                opacity: 0;
+                transition: opacity 0.3s;
+                font-size: 12px;
+            }
+            .info-icon:hover + .tooltip-text {
+                visibility: visible;
+                opacity: 1;
+            }
+        </style>
+
+        <div style="position: relative; display: inline-block;">
+            <span class="info-icon" title="">i</span>
+            <div class="tooltip-text">
+                Elke hexagon op de kaart heeft een oppervlakte van ongeveer 1 hectare.
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
     # 3D toggle
-    extruded = st.toggle("3D Weergave", value=False)
+    # extruded = st.toggle("3D Weergave", value=False)
+
 
 # Main map creation
 if st.sidebar.button("Maak Kaart"):
@@ -133,24 +226,11 @@ if st.sidebar.button("Maak Kaart"):
         "h3_index": "count"
     }).rename(columns={"h3_index": "aantal_huizen"}).reset_index()
 
-    # Percentile calculation
-    percentiles = {
-        25: grouped[scenario_column].quantile(0.25),
-        75: grouped[scenario_column].quantile(0.75)
-    }
-    
-    # Color assignment
-    grouped["color"] = grouped[scenario_column].apply(
-        lambda x: get_color(x, percentiles, grenswaarde)
-    )
+   # Color assignment using fixed bins
+    grouped["color"] = grouped[scenario_column].apply(get_color)
+
     grouped["rounded_value"] = grouped[scenario_column].round(0)
     
-    # Create separate dataset for threshold exceedance
-    threshold_df = grouped[grouped[scenario_column] > grenswaarde].copy()
-    # threshold_df["color"] = colorbrewer_colors[3]
-    threshold_df["color"] = [colorbrewer_colors[3]] * len(threshold_df)
-
-
     # Metrics calculation
     total_houses = grouped["aantal_huizen"].sum()
     total_demand = grouped[scenario_column].sum()
@@ -172,8 +252,8 @@ if st.sidebar.button("Maak Kaart"):
         st.markdown(f"""
             <div style='background-color: #f9f9f9; padding: 10px; border-radius: 10px;
                         border: 1px solid #ddd; text-align: center;margin-bottom: 20px;'>
-                <h2 style='margin: 0;'>{format_dutch_number(total_demand, 0)}</h2>
-                <p style='margin: 0;'>Totale Warmtevraag</p>
+                <h2 style='margin: 0;'>{format_dutch_number(total_demand, 0)} mWh</h2>
+                <p style='margin: 0;'>Totale Heat Demand (in mWh)</p>
             </div>
         """, unsafe_allow_html=True)
 
@@ -184,59 +264,63 @@ if st.sidebar.button("Maak Kaart"):
         grouped,
         pickable=True,
         filled=True,
-        extruded=extruded,
+        extruded=False,
         get_hexagon="h3_index",
         get_fill_color="color",
-        get_elevation=f"{scenario_column}/100" if extruded else 0,
-        elevation_scale=50 if extruded else 0,
+        # get_elevation=f"{scenario_column}/100" if extruded else 0,
+        # elevation_scale=50 if extruded else 0,
         elevation_range=[0, 1000],
         coverage=1,
-        opacity=0.2
+        opacity=0.5
     )
 
-    threshold_layer = pdk.Layer(
-        "H3HexagonLayer",
-        threshold_df,
-        pickable=True,
-        filled=True,
-        extruded=extruded,
-        get_hexagon="h3_index",
-        get_fill_color="color",
-        get_elevation=f"{scenario_column}/100" if extruded else 0,
-        elevation_scale=50 if extruded else 0,
-        elevation_range=[0, 1000],
-        coverage=1,
-        opacity=0.2
-    )
 
     # View state configuration
     view_state = pdk.ViewState(
         latitude=df_clean["latitude"].mean(),
         longitude=df_clean["longitude"].mean(),
-        zoom=10,
-        pitch=40.5 if extruded else 0,
+        zoom=8.5,
+        # pitch=40.5 if extruded else 0,
         bearing=0
     )
 
-    # Display the map
+    # Render the map
     st.pydeck_chart(pdk.Deck(
-        layers=[base_layer, threshold_layer],
+        layers=[base_layer],
         initial_view_state=view_state,
+        map_style=map_style_url,
         tooltip={
             "html": f"""<b>Scenario:</b> {selected_scenario}<br>
-                      <b>Warmtevraag:</b> {{rounded_value}} mWh<br>
-                      <b>Aantal panden:</b> {{aantal_huizen}}""",
+                    <b>Heat Demand (in mWh):</b> {{rounded_value}} mWh<br>
+                    <b>Aantal panden:</b> {{aantal_huizen}}""",
             "style": {"backgroundColor": "white", "color": "black"}
         }
-    ))
+    ), height=600)
 
-    # Dynamic legend with threshold
+    # Add the legend as an overlay in the bottom-right corner
     st.markdown(f"""
-    <div style="background: white; padding: 10px; border-radius: 5px; margin-top: 20px; border: 1px solid #ddd;">
-        <h4 style="margin-top: 0;">Legenda Warmtevraag ({selected_scenario})</h4>
-        <div><span style="background: #4575b4; width: 20px; height: 20px; display: inline-block; vertical-align: middle;"></span> Laagste 25% (&lt; {format_dutch_number(percentiles[25], 0)} mWh)</div>
-        <div><span style="background: #fee090; width: 20px; height: 20px; display: inline-block; vertical-align: middle;"></span> Midden 50% ({format_dutch_number(percentiles[25], 0)} - {format_dutch_number(percentiles[75], 0)} mWh)</div>
-        <div><span style="background: #d73027; width: 20px; height: 20px; display: inline-block; vertical-align: middle;"></span> Hoogste 25% (&gt; {format_dutch_number(percentiles[75], 0)} mWh)</div>
-        <div><span style="background: #1a9850; width: 20px; height: 20px; display: inline-block; vertical-align: middle;"></span> Grenswaarde overschreden (&gt; {format_dutch_number(grenswaarde, 0)} mWh)</div>
-    </div>
+        </div>
+        <div style="
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            z-index: 10;
+            box-shadow: 0px 0px 5px rgba(0,0,0,0.2);
+            max-width: 250px;
+        ">
+            <h4 style="margin-top: 0; font-size: 14px;">Legenda Heat Demand</h4>
+            <div><span style="background: #ffffff; width: 15px; height: 15px; display: inline-block;"></span> < 25 mWh</div>
+            <div><span style="background: #ffffbf; width: 15px; height: 15px; display: inline-block;"></span> 25 - 100 mWh</div>
+            <div><span style="background: #fee08b; width: 15px; height: 15px; display: inline-block;"></span> 100 - 500 mWh</div>
+            <div><span style="background: #fdce61; width: 15px; height: 15px; display: inline-block;"></span> 500 - 1.000 mWh</div>
+            <div><span style="background: #f46d43; width: 15px; height: 15px; display: inline-block;"></span> 1.000 - 2.000 mWh</div>
+            <div><span style="background: #d53e4f; width: 15px; height: 15px; display: inline-block;"></span> 2.000 - 5.000 mWh</div>
+            <div><span style="background: #9e0142; width: 15px; height: 15px; display: inline-block;"></span> > 5.000 mWh</div>
+        </div>
     """, unsafe_allow_html=True)
