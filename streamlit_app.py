@@ -229,7 +229,7 @@ if st.sidebar.button("Maak Kaart"):
    # Color assignment using fixed bins
     grouped["color"] = grouped[scenario_column].apply(get_color)
 
-    grouped["rounded_value"] = grouped[scenario_column].round(0)
+    grouped["rounded_value"] = grouped[scenario_column].round(2)
     
     # Metrics calculation
     total_houses = grouped["aantal_huizen"].sum()
