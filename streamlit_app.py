@@ -252,8 +252,8 @@ if st.sidebar.button("Maak Kaart"):
         st.markdown(f"""
             <div style='background-color: #f9f9f9; padding: 10px; border-radius: 10px;
                         border: 1px solid #ddd; text-align: center;margin-bottom: 20px;'>
-                <h2 style='margin: 0;'>{format_dutch_number(total_demand, 0)} mWh</h2>
-                <p style='margin: 0;'>Totale Heat Demand (in mWh)</p>
+                <h2 style='margin: 0;'>{format_dutch_number(total_demand, 0)} MWh</h2>
+                <p style='margin: 0;'>Totale Heat Demand (in MWh)</p>
             </div>
         """, unsafe_allow_html=True)
 
@@ -291,7 +291,7 @@ if st.sidebar.button("Maak Kaart"):
         map_style=map_style_url,
         tooltip={
             "html": f"""<b>Scenario:</b> {selected_scenario}<br>
-                    <b>Heat Demand (in mWh):</b> {{rounded_value}} mWh<br>
+                    <b>Heat Demand (in MWh):</b> {{rounded_value}} MWh<br>
                     <b>Aantal panden:</b> {{aantal_huizen}}""",
             "style": {"backgroundColor": "white", "color": "black"}
         }
@@ -315,12 +315,12 @@ if st.sidebar.button("Maak Kaart"):
             max-width: 250px;
         ">
             <h4 style="margin-top: 0; font-size: 14px;">Legenda Heat Demand</h4>
-            <div><span style="background: #ffffff; width: 15px; height: 15px; display: inline-block;"></span> < 25 mWh</div>
-            <div><span style="background: #ffffbf; width: 15px; height: 15px; display: inline-block;"></span> 25 - 100 mWh</div>
-            <div><span style="background: #fee08b; width: 15px; height: 15px; display: inline-block;"></span> 100 - 500 mWh</div>
-            <div><span style="background: #fdce61; width: 15px; height: 15px; display: inline-block;"></span> 500 - 1.000 mWh</div>
-            <div><span style="background: #f46d43; width: 15px; height: 15px; display: inline-block;"></span> 1.000 - 2.000 mWh</div>
-            <div><span style="background: #d53e4f; width: 15px; height: 15px; display: inline-block;"></span> 2.000 - 5.000 mWh</div>
-            <div><span style="background: #9e0142; width: 15px; height: 15px; display: inline-block;"></span> > 5.000 mWh</div>
+            <div><span style="background: #ffffff; width: 15px; height: 15px; display: inline-block;"></span> < 25 MWh</div>
+            <div><span style="background: #ffffbf; width: 15px; height: 15px; display: inline-block;"></span> 25 - 100 MWh</div>
+            <div><span style="background: #fee08b; width: 15px; height: 15px; display: inline-block;"></span> 100 - 500 MWh</div>
+            <div><span style="background: #fdce61; width: 15px; height: 15px; display: inline-block;"></span> 500 - 1.000 MWh</div>
+            <div><span style="background: #f46d43; width: 15px; height: 15px; display: inline-block;"></span> 1.000 - 2.000 MWh</div>
+            <div><span style="background: #d53e4f; width: 15px; height: 15px; display: inline-block;"></span> 2.000 - 5.000 MWh</div>
+            <div><span style="background: #9e0142; width: 15px; height: 15px; display: inline-block;"></span> > 5.000 MWh</div>
         </div>
     """, unsafe_allow_html=True)
